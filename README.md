@@ -56,7 +56,7 @@ How the two timing flags work together: when a PR gets blocked, the pipeline sle
 
 ### `/pr-review-pipeline:status`
 
-Read-only. Shows a table of every PR in the queue — its pipeline status, live GitHub state, and check results — and highlights which PR is currently blocking the pipeline and why. Works during a run, while paused, and after completion (it falls back to the archived state of the last finished run). Safe to run anytime.
+Never writes to GitHub; it may repair the local state file when live GitHub facts contradict it (e.g., a PR merged outside the pipeline). Shows a table of every PR in the queue — its pipeline status, live GitHub state, and check results — and highlights which PR is currently blocking the pipeline and why. Works during a run, while paused, and after completion (it falls back to the archived state of the last finished run). Safe to run anytime.
 
 ### `/pr-review-pipeline:resume`
 
