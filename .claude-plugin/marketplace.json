@@ -1,0 +1,12 @@
+{
+  "name": "pr-review-pipeline",
+  "owner": {
+    "name": "David Zayas"
+  },
+  "plugins": [
+    {
+      "name": "pr-review-pipeline",
+      "source": "./"
+    }
+  ]
+}

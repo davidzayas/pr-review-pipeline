@@ -7,19 +7,28 @@ A Claude Code plugin that reviews a queue of GitHub PRs in strict order: review 
 - [GitHub CLI](https://cli.github.com/) installed and authenticated (`gh auth login`) with permission to review and merge in the target repo
 - Run commands from inside a clone of the target repo
 
-## Install (local)
+## Install
 
-Option A — direct path:
+This repo is its own plugin marketplace (`.claude-plugin/marketplace.json`), so add it as a marketplace first — `/plugin install` only accepts `<plugin>@<marketplace>`, never a path.
 
-```
-/plugin install /path/to/pr-review-pipeline
-```
-
-Option B — local marketplace (this repo's parent folder includes `marketplace.json`):
+Option A — from GitHub:
 
 ```
-/plugin marketplace add /path/to/parent-folder
-/plugin install pr-review-pipeline@local
+/plugin marketplace add davidzayas/pr-review-pipeline
+/plugin install pr-review-pipeline@pr-review-pipeline
+```
+
+Option B — from a local clone:
+
+```
+/plugin marketplace add /path/to/pr-review-pipeline
+/plugin install pr-review-pipeline@pr-review-pipeline
+```
+
+Option C — development, no install (loads the plugin for one session):
+
+```
+claude --plugin-dir /path/to/pr-review-pipeline
 ```
 
 Validate: `/plugin validate /path/to/pr-review-pipeline`
@@ -52,7 +61,9 @@ Validate: `/plugin validate /path/to/pr-review-pipeline`
 
 ```
 pr-review-pipeline/
-├── .claude-plugin/plugin.json
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json   # repo doubles as its own marketplace
 ├── commands/
 │   ├── review.md    # /pr-review-pipeline:review
 │   ├── resume.md    # /pr-review-pipeline:resume
