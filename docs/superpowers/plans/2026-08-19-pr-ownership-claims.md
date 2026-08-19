@@ -385,6 +385,8 @@ git commit -m "feat(resume): remote-first reconciliation, supersession fence, cl
 **Interfaces:**
 - Consumes: protocol sections (Task 1); state schema v2 (Task 2).
 
+- [ ] **Step 0: Update frontmatter** — `allowed-tools` becomes `Bash(gh:*), Bash(cat:*), Bash(jq:*), Read, Write, Edit` (local state repairs need write capability).
+
 - [ ] **Step 1: Replace the body of `commands/status.md` (below frontmatter) with**
 
 ```markdown
