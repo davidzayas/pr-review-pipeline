@@ -39,7 +39,7 @@ Validate: `/plugin validate /path/to/pr-review-pipeline`
 2. Each PR is reviewed by the bundled `pr-reviewer` agent: correctness, security, tests/CI, and a disposition for every Copilot review comment.
 3. **Approve** → posts an approval review with the reasoning, then merges (squash by default, `--delete-branch`).
 4. **Request changes** → posts a changes-requested review with numbered, concrete fixes, @mentions and assigns the author.
-5. A blocked PR is polled (default: every 5 min, up to 60 min) for new commits or replies. On activity it is fully re-reviewed. The pipeline never advances past an unmerged PR.
+5. A blocked PR is polled (default: every 5 min, up to 4 hours) for new commits or replies. On activity it is fully re-reviewed. The pipeline never advances past an unmerged PR.
 6. If the wait budget runs out, state is saved to `.claude/pr-pipeline-state.json` and the run pauses — pick it up any time with `/pr-review-pipeline:resume`.
 
 ## Safety rails

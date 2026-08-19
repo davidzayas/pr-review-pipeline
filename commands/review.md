@@ -14,7 +14,7 @@ You are running an automated PR review pipeline. Process the PRs given in `$ARGU
 
 - `--merge-method` — `squash` (default), `merge`, or `rebase`
 - `--poll-interval` — minutes between polls while waiting on a blocked PR (default: 5)
-- `--max-wait` — total minutes to poll a blocked PR before pausing the pipeline (default: 60)
+- `--max-wait` — total minutes to poll a blocked PR before pausing the pipeline (default: 240)
 
 If no PR numbers were provided, ask the user for them and stop.
 
@@ -28,7 +28,7 @@ If no PR numbers were provided, ask the user for them and stop.
   "repo": "<owner/repo>",
   "merge_method": "squash",
   "poll_interval_min": 5,
-  "max_wait_min": 60,
+  "max_wait_min": 240,
   "queue": [
     { "pr": 123, "status": "pending", "head_sha_at_review": null, "notes": "" }
   ],
