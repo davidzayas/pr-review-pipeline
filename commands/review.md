@@ -1,7 +1,7 @@
 ---
 description: Run the PR review pipeline over an ordered list of PR numbers
 argument-hint: <pr-number> [pr-number...] [--merge-method squash|merge|rebase] [--poll-interval <min>] [--max-wait <min>]
-allowed-tools: Bash(gh:*), Bash(git:*), Bash(sleep:*), Bash(jq:*), Bash(cat:*), Bash(mkdir:*), Read, Write, Edit, Glob, Grep, Task
+allowed-tools: Bash(gh:*), Bash(git:*), Bash(sleep:*), Bash(jq:*), Bash(cat:*), Bash(mkdir:*), Bash(date:*), Bash(python3:*), Bash(uuidgen:*), Read, Write, Edit, Glob, Grep, Task
 ---
 
 # PR Review Pipeline
@@ -86,9 +86,13 @@ Do this BEFORE reviewing any PR, and BEFORE creating the state file's claims:
    its rules (loud warning, generation + 1); active with unparseable payload
    → add to the conflict list (ownership unknown, treated as non-stale);
    active foreign non-stale → add to the conflict list. If a classification
-   read fails for a PR: record it per the protocol (sync_status `failed`),
-   do not add it to the conflict list, skip claiming that PR this run, and
-   continue — never block preflight completion on a read failure.
+   read fails for a PR: note the failure in memory (do not create the state
+   file early), do not add the PR to the conflict list, and skip claiming
+   it this run; when the state file is created in step 3, record the
+   failure there as sync_status `failed` with the error. Never block
+   preflight completion on a read failure — and if the run stops before
+   the state file exists (declined takeover), report the failure to the
+   user instead.
 2. If the conflict list is non-empty, present ONE consolidated takeover
    confirmation listing every conflicted PR, its owner, run_id and stale_at.
    If the user declines: stop entirely — no state file, no GitHub changes

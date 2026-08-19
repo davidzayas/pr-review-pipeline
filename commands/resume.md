@@ -1,6 +1,6 @@
 ---
 description: Resume a paused PR review pipeline from saved state
-allowed-tools: Bash(gh:*), Bash(git:*), Bash(sleep:*), Bash(jq:*), Bash(cat:*), Read, Write, Edit, Task
+allowed-tools: Bash(gh:*), Bash(git:*), Bash(sleep:*), Bash(jq:*), Bash(cat:*), Bash(date:*), Bash(python3:*), Bash(uuidgen:*), Read, Write, Edit, Task
 ---
 
 # Resume PR Review Pipeline
@@ -29,7 +29,9 @@ processing.
      outstanding (non-terminal) PR's remote claim has
      `claim_state: "active"` AND a `run_id` different from this state
      file's top-level `run_id` AND a generation ≥ the locally cached
-     generation, mark that local claim `sync_status: "superseded"`, tell
+     generation (treat a null or missing locally cached generation as 0,
+     so any active foreign claim supersedes a claim this run never
+     recorded), mark that local claim `sync_status: "superseded"`, tell
      the user which run owns it, and STOP — this run may not continue or
      write any claims. A RELEASED foreign claim is not a fence violation:
      report it and continue.

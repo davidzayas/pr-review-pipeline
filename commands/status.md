@@ -1,6 +1,6 @@
 ---
 description: Show the current PR review pipeline status
-allowed-tools: Bash(gh:*), Bash(cat:*), Bash(jq:*), Read, Write, Edit
+allowed-tools: Bash(gh:*), Bash(cat:*), Bash(jq:*), Bash(date:*), Bash(python3:*), Read, Write, Edit
 ---
 
 # Pipeline Status
