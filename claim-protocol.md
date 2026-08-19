@@ -119,6 +119,12 @@ Generations advance ONLY in `/review` claim classification:
 - Comment exists, active, unparseable payload → ownership UNKNOWN and
   non-stale: require the same explicit confirmation.
 
+Exception for missing comments: a run that already owns a PR per the local
+state file (matching top-level `run_id`) may CREATE a missing claim comment
+— legacy-upgrade backfill, or replacing a comment that disappeared — at
+`generation: 1` if the local claim has no generation, else at the locally
+cached generation. This creation is not a generation advance.
+
 ## Release
 
 Terminal transitions (`merged`, `skipped_error`) and `/cancel` release a

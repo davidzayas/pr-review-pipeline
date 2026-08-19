@@ -82,9 +82,10 @@ Do this BEFORE reviewing any PR, and BEFORE creating the state file's claims:
 
 1. For EVERY queued PR, fetch live state and find any existing claim comment
    (protocol: Finding the claim comment). Classify per the protocol's
-   Generation fence section: missing/released → claim; stale or unparseable →
-   claim only per its rules; active foreign non-stale → collect into a
-   conflict list.
+   Generation fence section: missing/released → claim; stale → claim per
+   its rules (loud warning, generation + 1); active with unparseable payload
+   → add to the conflict list (ownership unknown, treated as non-stale);
+   active foreign non-stale → add to the conflict list.
 2. If the conflict list is non-empty, present ONE consolidated takeover
    confirmation listing every conflicted PR, its owner, run_id and stale_at.
    If the user declines: stop entirely — no state file, no GitHub changes

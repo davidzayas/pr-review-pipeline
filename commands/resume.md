@@ -24,17 +24,23 @@ processing.
 4. Reconcile remote → local BEFORE any GitHub write, for the complete queue:
    - Live merged/closed PR facts repair terminal pipeline statuses
      (merged → `merged`; closed unmerged → `skipped_error`).
-   - Each PR's canonical claim comment (protocol: Finding the claim comment)
-     replaces cached claim metadata: owner, run_id, generation, timestamps,
-     state.
-   - Queue order, configuration, and nonterminal execution statuses stay as
-     the local file says.
-5. Supersession fence: if any outstanding (non-terminal) PR's remote claim
-   carries a different run_id with a generation ≥ the local one, mark that
-   local claim `sync_status: "superseded"`, tell the user which run owns it,
-   and STOP — this run may not continue or write any claims.
-6. Otherwise re-stamp every outstanding claim you own (updated_at = now,
-   stale_at = now + max_wait_min, current pipeline_status; fence first), set
+   - Supersession fence — run this check on each fetched remote claim
+     payload BEFORE replacing any cached claim metadata: if any
+     outstanding (non-terminal) PR's remote claim has
+     `claim_state: "active"` AND a `run_id` different from this state
+     file's top-level `run_id` AND a generation ≥ the locally cached
+     generation, mark that local claim `sync_status: "superseded"`, tell
+     the user which run owns it, and STOP — this run may not continue or
+     write any claims. A RELEASED foreign claim is not a fence violation:
+     report it and continue.
+   - After the fence passes: each PR's canonical claim comment (protocol:
+     Finding the claim comment) replaces cached claim metadata — owner,
+     run_id, generation, timestamps, state — and its comment id is cached
+     into `claim.comment_id`.
+   - Queue order, configuration, and nonterminal execution statuses stay
+     as the local file says.
+5. Re-stamp every outstanding claim you own (updated_at = now, stale_at =
+   now + max_wait_min, current pipeline_status; fence first), set
    `run_status: "active"`, and resume the pipeline exactly as defined in
    `/pr-review-pipeline:review` at the appropriate step (same mapping as
    before: paused/waiting/changes_requested → activity check;
