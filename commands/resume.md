@@ -39,7 +39,10 @@ processing.
      into `claim.comment_id`.
    - Queue order, configuration, and nonterminal execution statuses stay
      as the local file says.
-5. Re-stamp every outstanding claim you own (updated_at = now, stale_at =
+5. Re-stamp every outstanding claim you own — a claim is yours ONLY if its
+   post-fence `run_id` equals this state file's top-level `run_id`; never
+   edit or release a claim whose `run_id` differs, regardless of its
+   generation or state — (updated_at = now, stale_at =
    now + max_wait_min, current pipeline_status; fence first), set
    `run_status: "active"`, and resume the pipeline exactly as defined in
    `/pr-review-pipeline:review` at the appropriate step (same mapping as

@@ -13,7 +13,7 @@ labels, reviews, or merges. It may repair the LOCAL state file only.
    `.claude/pr-pipeline-state.last.json` (a completed/cancelled run) and
    report that; otherwise say no pipeline exists.
 2. For each PR in the queue, fetch live data
-   (`gh pr view <PR> --json state,reviewDecision,headRefOid,statusCheckRollup,title,author`)
+   (`gh pr view <PR> --json state,reviewDecision,headRefOid,statusCheckRollup,title,author,labels`)
    and its canonical claim comment. If live data cannot be fetched, show
    those fields as `unknown` and make no repairs for that PR.
 3. Local-only repairs (save the state file after):
@@ -26,7 +26,8 @@ labels, reviews, or merges. It may repair the LOCAL state file only.
 | # | PR | Title | Author | Pipeline status | Live state | Checks | Claim (owner/gen) | Claim sync | Stale? | Notes |
 
    `Stale?` = yes / no / unknown per the protocol's staleness rule. Flag
-   LOUDLY: any claim past its stale_at (likely abandoned run — suggest
+   LOUDLY: any ACTIVE claim past its stale_at (a released claim is never
+   stale — likely abandoned run, suggest
    `/pr-review-pipeline:resume` or `/pr-review-pipeline:cancel`), any
    label/comment disagreement (orphaned label, or active claim missing its
    label), any claim owned by a different run_id (superseded), and any

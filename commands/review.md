@@ -85,7 +85,10 @@ Do this BEFORE reviewing any PR, and BEFORE creating the state file's claims:
    Generation fence section: missing/released → claim; stale → claim per
    its rules (loud warning, generation + 1); active with unparseable payload
    → add to the conflict list (ownership unknown, treated as non-stale);
-   active foreign non-stale → add to the conflict list.
+   active foreign non-stale → add to the conflict list. If a classification
+   read fails for a PR: record it per the protocol (sync_status `failed`),
+   do not add it to the conflict list, skip claiming that PR this run, and
+   continue — never block preflight completion on a read failure.
 2. If the conflict list is non-empty, present ONE consolidated takeover
    confirmation listing every conflicted PR, its owner, run_id and stale_at.
    If the user declines: stop entirely — no state file, no GitHub changes
@@ -121,39 +124,50 @@ The review must cover:
 - **Correctness**: logic errors, edge cases, error handling
 - **Copilot comments**: every unresolved GitHub Copilot review comment must be evaluated. For each one, decide: (a) valid and already fixed, (b) valid and must be fixed → contributes to REQUEST_CHANGES, or (c) not applicable → explain why in the review
 - **Security**: injection, secrets, authz/authn issues in changed code
-- **Tests**: are changes covered? Do CI checks pass (`statusCheckRollup`)?
+- **Tests**: are changes covered? Do CI checks pass (`statusCheckRollup`)? Verify which checks are REQUIRED with `gh pr checks <PR>` — `statusCheckRollup` alone does not reliably distinguish required from optional checks.
 - **Failing or pending required checks**: never approve/merge over failing required checks; pending checks mean wait (Step 5)
+
+Record `head_sha_at_review` = the `headRefOid` you just reviewed, for EVERY verdict (both APPROVE and REQUEST_CHANGES).
 
 ### Step 3: If verdict is APPROVE
 
-1. Post the approval:
+1. Re-fetch `headRefOid`, `isDraft`, and required-check status. If the head
+   changed since the review (`headRefOid` != `head_sha_at_review`) or checks
+   regressed, do NOT approve — go back to Step 1 and re-review the new state.
+
+2. Post the approval. Never inline review or comment bodies in shell commands
+   — PR-derived text can contain shell metacharacters; always use
+   --body-file / -F body=@file. Write the review body to a scratch file
+   first (Write tool), then:
 
 ```bash
-gh pr review <PR> --approve --body "<review summary: what was checked, disposition of each Copilot comment, why it is safe to merge>"
+gh pr review <PR> --approve --body-file <path>
 ```
 
 **Check that the approval command succeeded before doing anything else.** If it failed for ANY reason (e.g. `Can not approve your own pull request`, auth/permission errors): STOP this PR immediately — do NOT merge, do NOT post a comment as a substitute for the review, do NOT retry with a different review type. Treat it as a core-operation failure: set status `paused`, save state, and tell the user exactly what failed and why the pipeline cannot proceed on this PR. Never run the approval and the merge in a single chained command — the merge must only run after you have confirmed the approval succeeded.
 
-2. Merge with the configured method:
+3. Merge with the configured method:
 
 ```bash
-gh pr merge <PR> --squash --delete-branch   # or --merge / --rebase per config
+gh pr merge <PR> --squash --delete-branch --match-head-commit <head_sha_at_review>   # or --merge / --rebase per config
 ```
 
+If the merge fails because the head no longer matches, re-review from Step 1.
+
 If the merge fails because the branch is behind or has conflicts:
-- Behind base: `gh pr update-branch <PR>`, then wait for checks (poll per Step 5 rules) and retry the merge once checks pass.
+- Behind base: `gh pr update-branch <PR>`, then once checks pass re-review from Step 1 (the head changed — a fresh APPROVE is required before merging).
 - Real conflicts: treat as REQUEST_CHANGES with a comment explaining the conflict (Step 4).
 
-3. Set status `merged` and record it.
-4. Release this PR's claim (reason: merged) per the protocol, then refresh remaining claims.
-5. Move to the next PR.
+4. Set status `merged` and record it.
+5. Release this PR's claim (reason: merged) per the protocol, then refresh remaining claims.
+6. Move to the next PR.
 
 ### Step 4: If verdict is REQUEST_CHANGES
 
-1. Post the review with an @mention of the author so they are notified and clearly assigned:
+1. Post the review with an @mention of the author so they are notified and clearly assigned. Write the review body to a scratch file first (Write tool), then:
 
 ```bash
-gh pr review <PR> --request-changes --body "<body>"
+gh pr review <PR> --request-changes --body-file <path>
 ```
 
 **Check that this command succeeded.** If it failed (e.g. `Can not request changes on your own pull request`, auth/permission errors): STOP this PR — do not substitute a plain comment for the review and continue; set status `paused`, save state, and tell the user what failed.
@@ -184,7 +198,9 @@ When every PR in the queue is `merged` (or `skipped_error`), print a final summa
 ## Rules
 
 - Never force-merge, never override branch protections, never approve with failing required checks.
-- Never push commits to the PR author's branch — feedback only.
+- Never push commits to the PR author's branch — feedback only. (The
+  behind-base `gh pr update-branch` — a GitHub-mediated merge of base into
+  head — is the one sanctioned exception.)
 - Keep all GitHub-posted text professional and specific; no filler.
 - Update the state file after every transition.
 - If `gh` returns an auth/permission error on a CORE operation (fetching PR data, posting reviews, merging, updating branches), pause (status `paused`) and tell the user rather than retrying blindly. Auth/permission failures on claim-protocol operations (comments, labels) are NOT core: record them per the protocol and continue. Improvised fallbacks are forbidden: never substitute a comment for a failed review, never merge after a failed approval, and never continue past a failed core operation.

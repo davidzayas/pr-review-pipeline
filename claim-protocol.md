@@ -73,7 +73,9 @@ This PR is open for normal review activity.
    `gh api repos/{owner}/{repo}/issues/comments/<comment_id>` — if it still
    contains the marker, it is canonical.
 2. Otherwise list and filter:
-   `gh api repos/{owner}/{repo}/issues/<PR>/comments --paginate --jq '[.[] | select(.body | contains("pr-review-pipeline:claim:v1"))]'`
+   `gh api repos/{owner}/{repo}/issues/<PR>/comments --paginate | jq -s '[.[][] | select(.body | contains("pr-review-pipeline:claim:v1"))]'`
+   (--paginate emits one JSON array per page; the `jq -s` merge is required —
+   a per-page `--jq` filter can miss claims on heavily-commented PRs.)
 3. Zero matches → no claim exists. One match → canonical. Multiple matches →
    NEVER create another; prefer the cached `comment_id` if it is among them,
    else the one with highest `generation` (latest `updated_at` as
@@ -82,7 +84,11 @@ This PR is open for normal review activity.
 ## Creating / editing claims
 
 - Create: `gh api repos/{owner}/{repo}/issues/<PR>/comments -f body="$BODY"`
-  → record returned `.id` as `claim.comment_id`.
+  → record returned `.id` as `claim.comment_id`. After creating, re-list the
+  PR's comments (step 2 above): if more than one marked comment now exists
+  (concurrent creation), apply the duplicate rule — keep the canonical
+  winner, never delete, flag the loser for manual cleanup — before any
+  further writes.
 - Edit: `gh api -X PATCH repos/{owner}/{repo}/issues/comments/<comment_id> -f body="$BODY"`
 - After any edit, re-fetch the comment and confirm the payload `run_id` and
   `generation` are yours; on mismatch mark that PR's claim
@@ -108,6 +114,12 @@ Before EVERY claim mutation (edit or release):
    `generation` == local `claim.generation`.
 3. On mismatch: set local `claim.sync_status = "superseded"`, do not write,
    and never attempt again this run. Core processing continues.
+
+This fence governs refreshes and releases by the claim's current owner.
+`/review` claim classification (below) is the sole exception: reuse/takeover
+paths intentionally write a NEW identity, fenced instead by their own rules
+— the remote payload must match what classification observed (re-fetch
+before writing; on change, re-classify).
 
 Generations advance ONLY in `/review` claim classification:
 - No comment exists → create with `generation: 1`.

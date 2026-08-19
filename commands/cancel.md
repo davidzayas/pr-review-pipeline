@@ -18,7 +18,8 @@ for every claim operation.
 3. Verify `gh auth status`. If GitHub is unreachable, skip to step 5 —
    cancellation still succeeds locally; say clearly that remote claims were
    NOT released and will go visibly stale on their own.
-4. For each queued PR whose claim `state` is `active`: fetch the canonical
+4. For each queued PR (regardless of its cached claim state — a desynced or
+   legacy state file must not hide a live remote claim): fetch the canonical
    claim comment, apply the generation fence (protocol), and release only if
    the remote run_id and generation match local state (reason: `cancelled`).
    A superseded claim (newer owner) is left untouched and marked
