@@ -33,7 +33,7 @@ If no PR numbers were provided, ask the user for them and stop.
    status) and that they must `/pr-review-pipeline:resume` it or
    `/pr-review-pipeline:cancel` it first. Never overwrite an active run.
 3. Generate `run_id` per the protocol. The state file is NOT created here — it
-   is created in step 4 of the Claim preflight below, after claim
+   is created in step 3 of the Claim preflight below, after claim
    classification (and takeover confirmation, if needed) succeeds. This is
    its schema:
 
@@ -80,21 +80,22 @@ Update this file after **every** status change so `/pr-review-pipeline:resume` a
 
 Do this BEFORE reviewing any PR, and BEFORE creating the state file's claims:
 
-1. Ensure the `pr-pipeline` label exists (protocol: Label management).
-2. For EVERY queued PR, fetch live state and find any existing claim comment
+1. For EVERY queued PR, fetch live state and find any existing claim comment
    (protocol: Finding the claim comment). Classify per the protocol's
    Generation fence section: missing/released → claim; stale or unparseable →
    claim only per its rules; active foreign non-stale → collect into a
    conflict list.
-3. If the conflict list is non-empty, present ONE consolidated takeover
+2. If the conflict list is non-empty, present ONE consolidated takeover
    confirmation listing every conflicted PR, its owner, run_id and stale_at.
-   If the user declines: stop entirely — no state file, no GitHub changes.
-4. Only after classification (and confirmation, if needed): create the state
+   If the user declines: stop entirely — no state file, no GitHub changes
+   (not even label creation).
+3. Only after classification (and confirmation, if needed): ensure the
+   `pr-pipeline` label exists (protocol: Label management), create the state
    file, then claim every queued PR — create or edit its comment to the
    active template (`pipeline_status` = its queue status, `stale_at` = now +
    max_wait_min) and add the label. Record `comment_id` and sync results per
    the protocol. Failures are recorded and skipped — never block.
-5. Begin strict-order review only after every claim attempt has finished.
+4. Begin strict-order review only after every claim attempt has finished.
 
 ## Pipeline loop — for each PR in order
 
@@ -181,7 +182,7 @@ When every PR in the queue is `merged` (or `skipped_error`), print a final summa
 - Never push commits to the PR author's branch — feedback only.
 - Keep all GitHub-posted text professional and specific; no filler.
 - Update the state file after every transition.
-- If `gh` returns an auth/permission error, pause (status `paused`) and tell the user rather than retrying blindly.
+- If `gh` returns an auth/permission error on a CORE operation (fetching PR data, posting reviews, merging, updating branches), pause (status `paused`) and tell the user rather than retrying blindly. Auth/permission failures on claim-protocol operations (comments, labels) are NOT core: record them per the protocol and continue.
 - After EVERY per-PR status transition (persist it to the state file FIRST),
   refresh every outstanding active claim you own with one shared transition
   timestamp: `updated_at` = now, `stale_at` = now + max_wait_min,
