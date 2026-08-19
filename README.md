@@ -35,21 +35,91 @@ Validate: `/plugin validate /path/to/pr-review-pipeline`
 
 ## Usage
 
+The plugin has three commands. `review` starts a run, `status` inspects it, `resume` continues a paused one.
+
+### `/pr-review-pipeline:review <pr-number> [pr-number...] [flags]`
+
+Starts the pipeline over the PR numbers you list. **Order matters**: PRs are processed strictly in the order given, and the pipeline never advances past a PR that hasn't been merged (or skipped as unprocessable). Put your highest-priority PR first.
+
 ```
 /pr-review-pipeline:review 142 145 150
 /pr-review-pipeline:review 142 145 --merge-method rebase --poll-interval 10 --max-wait 120
-/pr-review-pipeline:status
-/pr-review-pipeline:resume
 ```
+
+| Flag | Values | Default | What it controls |
+|------|--------|---------|------------------|
+| `--merge-method` | `squash`, `merge`, `rebase` | `squash` | How an approved PR is merged. All methods delete the source branch after merging. |
+| `--poll-interval` | minutes | `5` | How often a blocked PR (changes requested, draft, or pending checks) is re-checked for new commits, replies, or readiness. |
+| `--max-wait` | minutes | `240` (4 hours) | Total time to keep polling a blocked PR before the pipeline pauses itself. The budget applies per blocking episode, not per run. |
+
+How the two timing flags work together: when a PR gets blocked, the pipeline sleeps `--poll-interval` minutes, re-checks the PR, and repeats until either something changed (new commits, author replies, draft marked ready, checks finished) or `--max-wait` minutes have elapsed in total. With the defaults that is a check every 5 minutes for up to 4 hours. Raise `--poll-interval` for a quieter loop on slow-moving repos; lower `--max-wait` if you'd rather have the pipeline hand control back to you quickly instead of waiting on authors.
+
+### `/pr-review-pipeline:status`
+
+Read-only. Shows a table of every PR in the queue — its pipeline status, live GitHub state, and check results — and highlights which PR is currently blocking the pipeline and why. Works during a run, while paused, and after completion (it falls back to the archived state of the last finished run). Safe to run anytime.
+
+### `/pr-review-pipeline:resume`
+
+Continues a paused or interrupted run from the saved state file, picking up at the right step for wherever it left off: a PR waiting on its author resumes polling (or re-reviews immediately if there's been activity), a PR that was approved but not merged retries the merge, and anything not yet reviewed starts fresh. You can resume in a brand-new Claude Code session — state lives on disk, not in the conversation.
 
 ## How it works
 
-1. PRs are processed strictly in the order given.
-2. Each PR is reviewed by the bundled `pr-reviewer` agent: correctness, security, tests/CI, and a disposition for every Copilot review comment.
-3. **Approve** → posts an approval review with the reasoning, then merges (squash by default, `--delete-branch`).
-4. **Request changes** → posts a changes-requested review with numbered, concrete fixes, @mentions and assigns the author.
-5. A blocked PR is polled (default: every 5 min, up to 4 hours) for new commits or replies. On activity it is fully re-reviewed. The pipeline never advances past an unmerged PR.
-6. If the wait budget runs out, state is saved to `.claude/pr-pipeline-state.json` and the run pauses — pick it up any time with `/pr-review-pipeline:resume`.
+Each PR moves through review → verdict → merge-or-wait. This is the loop the pipeline runs for every PR in your queue:
+
+```mermaid
+flowchart TD
+    START(["/review 142 145 150"]) --> NEXT["Take next PR in queue order"]
+    NEXT --> GATE{"PR open and ready?"}
+    GATE -- "closed / already merged" --> SKIP["Mark skipped_error"] --> NEXT
+    GATE -- "draft" --> POLL
+    GATE -- "yes" --> REVIEW["pr-reviewer agent reviews:<br/>correctness, security, tests/CI,<br/>every Copilot comment"]
+    REVIEW --> VERDICT{"Verdict"}
+    VERDICT -- "APPROVE" --> MERGE["Post approval review,<br/>merge + delete branch"]
+    MERGE -- "merged" --> NEXT
+    MERGE -- "branch behind base" --> UPDATE["Update branch,<br/>wait for checks, retry"] --> MERGE
+    VERDICT -- "REQUEST_CHANGES" --> RC["Post changes-requested review:<br/>numbered fixes, @mention + assign author"]
+    RC --> POLL["Poll every --poll-interval min<br/>for new commits / replies / ready"]
+    POLL -- "activity detected" --> REVIEW
+    POLL -- "--max-wait exceeded" --> PAUSE(["Pause — state saved.<br/>Continue anytime with /resume"])
+    PAUSE -. "/pr-review-pipeline:resume" .-> NEXT
+    NEXT -- "queue empty" --> DONE(["Summary table, state archived"])
+```
+
+The mental model: **the pipeline is a strict queue with one gate — merged.** A PR either makes it through the gate or the whole line waits behind it. You kick it off, and the pipeline drives each PR to a decisive outcome:
+
+1. **Gather context.** The PR's metadata, full diff, all review comments (including GitHub Copilot's), and CI status are pulled via `gh`.
+2. **Review.** The bundled `pr-reviewer` agent evaluates correctness, security, and test coverage, and classifies **every unresolved Copilot comment** as fix-required, already-addressed, or not-applicable (with a reason). It returns a decisive `APPROVE` or `REQUEST_CHANGES` — never a hedged "approve with comments."
+3. **Approve path.** An approval review is posted with the reasoning and each Copilot comment's disposition, then the PR is merged (per `--merge-method`, deleting the branch). If the branch is merely behind base, it's updated and the merge retried once checks pass; real conflicts are treated as a changes request.
+4. **Request-changes path.** A changes-requested review is posted with a numbered list of concrete fixes (file, line, and how to resolve), the author is @mentioned and assigned, and the pipeline starts polling.
+5. **Waiting.** A blocked PR — changes requested, draft, or pending required checks — is polled per the timing flags. Any activity (new commits, author replies, draft marked ready) triggers a **full re-review from scratch**, so fixes get the same scrutiny as the original diff.
+6. **Pause & resume.** If `--max-wait` runs out with no activity, the run saves its state and pauses, telling you exactly which PR is blocked and why. Nothing is lost: `/pr-review-pipeline:resume` continues from that exact point, even days later or in a different session.
+7. **Completion.** When every PR is merged (or skipped with a reason), you get a summary table and the state file is archived.
+
+### Pipeline state
+
+Progress is tracked in `.claude/pr-pipeline-state.json` in the target repo, updated after every transition — this is what makes `status` and `resume` work at any time. Each queued PR carries one of these statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Queued, not yet reviewed |
+| `reviewing` | Review in progress |
+| `changes_requested` | Changes-requested review posted; author notified |
+| `waiting` | Being polled for activity |
+| `approved` | Approved but not yet merged (e.g., merge retry in progress) |
+| `merged` | Done — pipeline moved on |
+| `paused` | Wait budget exhausted; run stopped, resumable |
+| `skipped_error` | Unprocessable (closed, already merged, or author closed it) |
+
+On completion the file is archived to `.claude/pr-pipeline-state.last.json`. You may want to add both paths to the target repo's `.gitignore`.
+
+### Typical session
+
+```
+/pr-review-pipeline:review 142 145 150     # kick off, go do something else
+/pr-review-pipeline:status                 # peek: 142 merged, 145 waiting on author
+                                           # ...max-wait expires, pipeline pauses...
+/pr-review-pipeline:resume                 # next morning: author pushed fixes → re-review → merge → on to 150
+```
 
 ## Safety rails
 
