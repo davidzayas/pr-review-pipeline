@@ -131,6 +131,8 @@ The review must cover:
 gh pr review <PR> --approve --body "<review summary: what was checked, disposition of each Copilot comment, why it is safe to merge>"
 ```
 
+**Check that the approval command succeeded before doing anything else.** If it failed for ANY reason (e.g. `Can not approve your own pull request`, auth/permission errors): STOP this PR immediately — do NOT merge, do NOT post a comment as a substitute for the review, do NOT retry with a different review type. Treat it as a core-operation failure: set status `paused`, save state, and tell the user exactly what failed and why the pipeline cannot proceed on this PR. Never run the approval and the merge in a single chained command — the merge must only run after you have confirmed the approval succeeded.
+
 2. Merge with the configured method:
 
 ```bash
@@ -152,6 +154,8 @@ If the merge fails because the branch is behind or has conflicts:
 ```bash
 gh pr review <PR> --request-changes --body "<body>"
 ```
+
+**Check that this command succeeded.** If it failed (e.g. `Can not request changes on your own pull request`, auth/permission errors): STOP this PR — do not substitute a plain comment for the review and continue; set status `paused`, save state, and tell the user what failed.
 
 The body must contain:
 - Opening line: `@<author-login> changes are requested on this PR — please address the items below.`
@@ -182,7 +186,7 @@ When every PR in the queue is `merged` (or `skipped_error`), print a final summa
 - Never push commits to the PR author's branch — feedback only.
 - Keep all GitHub-posted text professional and specific; no filler.
 - Update the state file after every transition.
-- If `gh` returns an auth/permission error on a CORE operation (fetching PR data, posting reviews, merging, updating branches), pause (status `paused`) and tell the user rather than retrying blindly. Auth/permission failures on claim-protocol operations (comments, labels) are NOT core: record them per the protocol and continue.
+- If `gh` returns an auth/permission error on a CORE operation (fetching PR data, posting reviews, merging, updating branches), pause (status `paused`) and tell the user rather than retrying blindly. Auth/permission failures on claim-protocol operations (comments, labels) are NOT core: record them per the protocol and continue. Improvised fallbacks are forbidden: never substitute a comment for a failed review, never merge after a failed approval, and never continue past a failed core operation.
 - After EVERY per-PR status transition (persist it to the state file FIRST),
   refresh every outstanding active claim you own with one shared transition
   timestamp: `updated_at` = now, `stale_at` = now + max_wait_min,
