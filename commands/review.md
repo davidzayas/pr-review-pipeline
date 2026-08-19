@@ -132,8 +132,10 @@ Record `head_sha_at_review` = the `headRefOid` you just reviewed, for EVERY verd
 ### Step 3: If verdict is APPROVE
 
 1. Re-fetch `headRefOid`, `isDraft`, and required-check status. If the head
-   changed since the review (`headRefOid` != `head_sha_at_review`) or checks
-   regressed, do NOT approve — go back to Step 1 and re-review the new state.
+   changed since the review (`headRefOid` != `head_sha_at_review`), the PR
+   became a draft (`isDraft` true), or checks regressed, do NOT approve — go
+   back to Step 1 and re-review the new state (a draft goes to Step 5's
+   blocked handling as usual).
 
 2. Post the approval. Never inline review or comment bodies in shell commands
    — PR-derived text can contain shell metacharacters; always use
