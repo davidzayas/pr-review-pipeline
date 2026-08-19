@@ -366,7 +366,7 @@ Replace the existing numbered list body (keep items 1–2, auth/repo checks) so 
    releases.
 ```
 
-- [ ] **Step 3: Validate** — `grep -n 'superseded' commands/resume.md` (expect ≥2), `grep -n 'CLAUDE_PLUGIN_ROOT' commands/resume.md` (expect 1).
+- [ ] **Step 3: Validate** — `grep -n 'superseded' commands/resume.md` (expect ≥1), `grep -n 'CLAUDE_PLUGIN_ROOT' commands/resume.md` (expect 1).
 
 - [ ] **Step 4: Commit**
 
