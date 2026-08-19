@@ -33,6 +33,15 @@ required; use JSON `null` where a value does not apply yet.
 <!-- pr-review-pipeline:claim:v1 {"repo":"<owner/repo>","pr":<number>,"owner":"<login>","run_id":"<run-id>","generation":<int>,"pipeline_status":"<per-PR status>","claim_state":"active|released","claimed_at":"<iso>","updated_at":"<iso>","stale_at":"<iso>","released_at":"<iso|null>","release_reason":"<string|null>"} -->
 ```
 
+## State-file claim object
+
+Each queued PR's state entry carries a `claim` object with exactly these
+keys (spec: Components): `comment_id`, `owner`, `run_id`, `generation`,
+`claimed_at`, `updated_at`, `stale_at`, `state` (`"active"` or
+`"released"` — mirrors the payload's `claim_state`), `sync_status`
+(`synced` | `partial` | `failed` | `superseded`), `last_error`
+(message or null). Commands update this object on every claim attempt.
+
 ## Comment template
 
 The canonical comment body is the payload marker line followed by visible
@@ -112,8 +121,10 @@ Generations advance ONLY in `/review` claim classification:
 
 ## Release
 
-Terminal transitions (`merged`, `skipped_error`), `/cancel`, and completion
-release a claim by (fence first): editing the comment to the released
+Terminal transitions (`merged`, `skipped_error`) and `/cancel` release a
+claim — run completion is not a separate trigger, since every PR is already
+terminal (and thus released) when a run completes. Release means (fence
+first): editing the comment to the released
 template (`claim_state: "released"`, `released_at` = now, `release_reason`
 one of `merged`, `skipped_error`, `cancelled`), then removing the label.
 Comment stays forever (history). If release fails: record it, continue —
