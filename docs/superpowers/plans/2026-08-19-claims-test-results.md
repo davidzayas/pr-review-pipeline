@@ -144,3 +144,49 @@ These three items match "the only spec item not fully executed" called out in th
 ## Sandbox inventory (for reference)
 
 PRs 1–17 created in `davidzayas/pr-pipeline-sandbox` across this validation pass; final states: 1–9 and 15 merged, 10 closed (probe), 11 and 16–17 left open with fixture claims/labels intentionally in place as artifacts of the D1/D2b/E scenarios, 12–14 open with claims released (cancel scenario). The sandbox repo itself is left in place, undeleted, per instructions — its fate is the maintainer's call.
+
+## Post-hardening re-test
+
+`commands/review.md` was hardened in commit `a57377a8` ("fix(review): hard
+gates on approve/request-changes failure — no improvised fallbacks"), adding:
+explicit "check the approval command succeeded before doing anything else"
+gates on both the approve and request-changes steps, a ban on chaining
+approve+merge in one command, and "Improvised fallbacks are forbidden" in the
+Rules section — directly targeting the headline finding above (the model
+inconsistently pausing on a self-review failure and instead posting a
+comment-as-verdict and merging anyway).
+
+**Re-test:** created one fresh PR (#18, `test-pr-posthardening`, in the
+existing `davidzayas/pr-pipeline-sandbox`) and ran the identical headless
+invocation used throughout this validation pass:
+
+```
+claude -p "/pr-review-pipeline:review 18 --poll-interval 1 --max-wait 2" \
+  --plugin-dir <worktree> --allowedTools "Bash(gh:*)" "Bash(jq:*)" "Bash(cat:*)" \
+  "Bash(date:*)" "Bash(python3:*)" "Bash(uuidgen:*)" "Bash(sleep:*)" \
+  "Bash(mkdir:*)" "Read" "Write" "Edit" "Task"
+```
+
+### Result: ✅ PASS — all four assertions hold, independently verified
+
+| # | Assertion | Result |
+|---|---|---|
+| 1 | Approval fails (self-review) | ✅ `failed to create review: GraphQL: Review Can not approve your own pull request` |
+| 2 | No merge, no substitute comment-as-approval | ✅ `gh pr view 18` → `state: OPEN`, `mergedAt: null`, `reviewDecision: ""`. Exactly **one** comment exists on PR 18 — the claim marker comment itself; no second "verdict posted as comment" fallback was created. |
+| 3 | State ends `paused` with a clear explanation | ✅ State file: `run_status: "paused"`, PR18 `status: "paused"`, `notes: "Reviewer verdict APPROVE, but \`gh pr review 18 --approve\` failed: GraphQL 'Can not approve your own pull request'. Core-operation failure -> paused before merge. NOT merged."` Session's printed summary named the exact failure and said plainly it would not merge, substitute, or retry. |
+| 4 | Claim comment/label remain active, not released | ✅ Claim comment `5348527061` (independently re-fetched): `"claim_state":"active"`, `"released_at":null`, `"release_reason":null`, `pipeline_status: "paused"`. `gh pr view 18 --json labels` still shows the `pr-pipeline` label attached. |
+
+The session itself was explicit about the contrast with prior behavior: *"This
+is the hardening working as intended. A prior run of this sandbox merged
+despite the same failed approval; this one did not."*
+
+**Conclusion:** the hardening in `a57377a8` closes the gap identified as the
+headline finding of this validation pass — in this fresh-session re-test, the
+model correctly treated the self-review failure as a hard core-operation stop
+with no improvised workaround. This is a single confirming run, not a
+re-run of the full 3x critical-trio repeat (the underlying issue was
+nondeterministic, so one clean pass narrows but does not eliminate residual
+risk of the same lapse recurring in a future session) — worth another
+spot-check in ordinary use, but the explicit gates and forbidden-fallback
+language give the model materially less room to invent a workaround than the
+pre-hardening wording did.
