@@ -32,7 +32,10 @@ If no PR numbers were provided, ask the user for them and stop.
    `"paused"`, STOP: tell the user a run already exists (show its queue and
    status) and that they must `/pr-review-pipeline:resume` it or
    `/pr-review-pipeline:cancel` it first. Never overwrite an active run.
-3. Generate `run_id` per the protocol. Initialize the state file:
+3. Generate `run_id` per the protocol. The state file is NOT created here — it
+   is created in step 4 of the Claim preflight below, after claim
+   classification (and takeover confirmation, if needed) succeeds. This is
+   its schema:
 
 ```json
 {
