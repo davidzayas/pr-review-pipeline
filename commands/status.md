@@ -34,5 +34,14 @@ labels, reviews, or merges. It may repair the LOCAL state file only.
    sync_status of failed/partial.
 5. Highlight the PR currently blocking the pipeline (first non-merged,
    non-skipped entry), what it is waiting on, and how to continue.
+6. Untracked open PRs — end with a live look at what no pipeline is
+   tracking: run `gh pr list --state open --json number,title,author,createdAt`,
+   subtract the queued PR numbers, and print the remainder as one
+   "Untracked open PRs" line per PR: number, title, author login, created
+   date. Use ONLY the facts returned by that command — never characterize
+   these PRs from conversation memory or prior sessions (no "unreviewed
+   since...", no inferred holds or intents). If none remain, say "No open
+   PRs outside the pipeline." This step, like every other, writes nothing
+   to GitHub.
 
 $ARGUMENTS
