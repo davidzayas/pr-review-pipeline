@@ -35,13 +35,20 @@ labels, reviews, or merges. It may repair the LOCAL state file only.
 5. Highlight the PR currently blocking the pipeline (first non-merged,
    non-skipped entry), what it is waiting on, and how to continue.
 6. Untracked open PRs — end with a live look at what no pipeline is
-   tracking: run `gh pr list --state open --json number,title,author,createdAt`,
-   subtract the queued PR numbers, and print the remainder as one
-   "Untracked open PRs" line per PR: number, title, author login, created
-   date. Use ONLY the facts returned by that command — never characterize
-   these PRs from conversation memory or prior sessions (no "unreviewed
+   tracking: run
+   `gh pr list --state open --limit 200 --json number,title,author,createdAt`.
+   Subtract the queued PR numbers ONLY if the state came from an active or
+   paused run; when the state came from the archived `.last.json` (run
+   completed or cancelled), subtract nothing — a finished run tracks no
+   PRs, so every open PR is untracked. Print the remainder sorted by PR
+   number ascending, one line each, exactly:
+   `#<number> — <title> (@<author login, or "unknown" if null>, opened <createdAt date part, YYYY-MM-DD>)`.
+   Use ONLY the facts returned by that command — never characterize these
+   PRs from conversation memory or prior sessions (no "unreviewed
    since...", no inferred holds or intents). If none remain, say "No open
-   PRs outside the pipeline." This step, like every other, writes nothing
-   to GitHub.
+   PRs outside the pipeline." If the command fails or returns non-JSON,
+   say "Could not determine untracked PRs (<error>)" — never report "none"
+   on a failed read. If exactly 200 results come back, note the list may
+   be truncated. This step, like every other, writes nothing to GitHub.
 
 $ARGUMENTS
